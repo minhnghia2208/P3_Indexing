@@ -1,4 +1,5 @@
 import json
+from lib2to3.pgen2 import token
 from typing import Dict
 # Connection String
 cs = {
@@ -15,6 +16,7 @@ cs = {
     
     "corpus": "corpus",
     "sceneId": "sceneId",
+    "playId": "playId",
     "text": "text"
     
 }
@@ -23,18 +25,27 @@ cs = {
 invertedIndex = {} # Map<Term, PostingList>
 
 # PostingList: Map< docId, int[] >
+# PlayId: Map< docId, playId >
 class PostingList:
-    def __init__(self, postingList={}):
+    def __init__(self, postingList={}, playId={}):
         self.postingList = postingList
+        self.playId = playId
         
     def get(self):
         return self.postingList
+    
+    def getPlayID(self):
+        return self.playId
     
     def push(self, docId, index):
         if self.postingList.get(docId):
             self.postingList[docId].append(index)
         else:
             self.postingList[docId] = [index]
+    
+    def pushPlayId(self, docId, playId):
+        if (not self.playId.get(docId)):
+            self.playId[docId] = playId
 
 # Indexing
 def indexing():
@@ -44,6 +55,7 @@ def indexing():
     corpus = data[cs["corpus"]]
     for C in corpus:
         docId = C[cs["sceneId"]]
+        playId = C[cs["playId"]]
         
         # Splitting
         def checkEmpty(str):
@@ -56,10 +68,11 @@ def indexing():
             term = invertedIndex.get(tokens[index])
             if (not term):
                 # Init new term
-                invertedIndex[tokens[index]] = PostingList({docId: [index]})
+                invertedIndex[tokens[index]] = PostingList({docId: [index]}, {docId: playId})
                 
             else:
                 invertedIndex[tokens[index]].push(docId, index)
+                invertedIndex[tokens[index]].pushPlayId(docId, playId)
                     
     ###
     # Write to "DISK"
@@ -121,11 +134,8 @@ class TermBased:
     def findPlays(self, term, fileName):
         ans = set()
         if self.invertedIndex.get(term): 
-            for sceneId in self.invertedIndex[term].get():
-                # Get playId
-                playId = sceneId.split(':')[0]
-                ###
-                ans.add(self.invertedIndex[term].get()[playId])
+            for playId in self.invertedIndex[term].getPlayID():
+                ans.add(self.invertedIndex[term].getPlayID()[playId])
                
         self.writeFile(fileName, ans)
         return ans
