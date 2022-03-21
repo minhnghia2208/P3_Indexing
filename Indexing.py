@@ -129,8 +129,9 @@ class TermBased:
         return ans
     
     # Find playId(s) that contain(s) given term
-    # @param {string[]}  first array of terms
-    # @return {set< string >} Ordered set of sceneId
+    # @param {string[]} term: first array of terms
+    # @param {string} fileName
+    # @return {set< string >} Ordered set of playId
     def findPlays(self, term, fileName):
         ans = set()
         if self.invertedIndex.get(term): 
@@ -140,7 +141,94 @@ class TermBased:
         self.writeFile(fileName, ans)
         return ans
     
-
+class PhraseBased:
+    def __init__(self, invertedIndex={}):
+        self.invertedIndex = invertedIndex
+        
+    def writeFile(self, fileName, set):
+        f = open(fileName, "w")
+        for i in set:
+            f.write( i + '\n')
+        f.close()
+        
+    # Find sceneId(s) that contain the phrase
+    # with p length maximum for each terms from each other
+    # @param { string } phrase
+    # @param { int } p: maximum space of each term in phrase
+    # @return { set<string> } set of docId
+    def findScenes(self, phrase, p, fileName):
+        def checkEmpty(str):
+            if len(str) == 0:
+                return False
+            return True
+        
+        terms = list(filter(checkEmpty, phrase.split(' ')))
+        docIds = self.findSceneIds(terms)
+        ans = self.intersecting(terms, docIds, p)
+        self.writeFile(fileName, ans)
+        return ans
+    
+    # Find sceneId(s) that contain(s) all the given terms
+    # @param {string[]} terms: first array of terms
+    # @return {set< string >} Ordered set of sceneId
+    def findSceneIds(self, terms):
+        ans = set()
+        init = True
+        for term in terms:
+            if self.invertedIndex.get(term):
+                temp = set()
+                # Init first set of sceneId
+                if init:
+                    for sceneId in self.invertedIndex[term].get():
+                        ans.add(sceneId)
+                    init = False
+                    
+                # Add the rest of scene that contain terms
+                # Remove sceneId that does not contain every term
+                else:
+                    for sceneId in self.invertedIndex[term].get():
+                        if sceneId in ans:
+                            temp.add(sceneId)
+                    # Re-assign temp to ans
+                    ans = set()
+                    for i in temp:
+                        ans.add(i)
+        return ans
+    
+    # Find sceneId(s) that contain a 
+    # @param { string[] } terms
+    # @param { set< string > } docIds: all sceneIds containning terms
+    # @param { int } p: maximum space of each term in phrase 
+    # @return { set< string > } ans: all docIds containing phrase
+    def intersecting(self, terms, docIds, p):
+        ans = set()
+        for docId in docIds:
+            index = []
+            for term in terms:
+                # Array of array
+                # representing index of each term
+                index.append(self.invertedIndex[term].get()[docId])
+            if self.matchingWindow(index, p):
+                ans.add(docId)
+        return ans
+    
+    # return {bool} ans
+    def matchingWindow(self, index, p):
+        # @param {int} current: current index of docId window
+        # @return {bool} ans: if phrase is not construtible from docId
+        def recur(current, pos):
+            if current >= len(index)-1:
+                return True
+            
+            next = current + 1
+            for i in range(pos, len(index[current])):
+                for j in range(0, len(index[next])):
+                    dis = index[next][j] - index[current][i]
+                    if dis > 0 and dis <= p:
+                        return recur(next, j)     
+            return False
+        return recur(0, 0)
+        
 ###
 # Main
 indexing()
@@ -149,3 +237,8 @@ termBased.findGreaterScene(['thee', 'thou'], ['you'], cs["terms0"])
 termBased.findGreaterScene(['venice', 'rome', 'denmark'], [], cs["terms1"])
 termBased.findPlays('goneril', cs["terms2"])
 termBased.findPlays('soldier', cs["terms3"])
+
+phraseBased = PhraseBased(invertedIndex)
+phraseBased.findScenes("poor yorick", 1, cs["phrase0"])
+phraseBased.findScenes("wherefore art thou romeo", 1, cs["phrase1"])
+phraseBased.findScenes("let slip", 1, cs["phrase2"])
