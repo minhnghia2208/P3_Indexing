@@ -22,12 +22,12 @@ cs = {
 }
 
 # Global Variable
-invertedIndex = {} # Map<Term, PostingList>
+invertedIndex = {} # Map<Term, List<Posting>>
 
-# PostingList: Map< docId, int[] >
+# PostingList: [docId, int[]]
 # PlayId: Map< docId, playId >
 class PostingList:
-    def __init__(self, postingList={}, playId={}):
+    def __init__(self, postingList=[], playId={}):
         self.postingList = postingList
         self.playId = playId
         
@@ -38,10 +38,13 @@ class PostingList:
         return self.playId
     
     def push(self, docId, index):
-        if self.postingList.get(docId):
-            self.postingList[docId].append(index)
-        else:
-            self.postingList[docId] = [index]
+        for i in self.postingList:
+            if i[0] == docId:
+                i[1].append(index)
+                return
+        
+        self.postingList.append(docId)
+        
     
     def pushPlayId(self, docId, playId):
         if (not self.playId.get(docId)):
