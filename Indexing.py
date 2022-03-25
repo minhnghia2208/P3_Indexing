@@ -1,6 +1,6 @@
+import collections
 import json
-from lib2to3.pgen2 import token
-from typing import Dict
+import time
 # Connection String
 cs = {
     "shakespeare": "shakespeare-scenes.json",
@@ -22,12 +22,20 @@ cs = {
 }
 
 # Global Variable
-invertedIndex = {} # Map<Term, List<Posting>>
+invertedIndex = {} # Map<Term, PostingList>
+average_len, num_scene = 0, 0
 
-# PostingList: [docId, int[]]
+shortest_len, shortest_scene = 1000000, ''
+longest_len, longest_scene = 0, ''
+
+play_dict = {}
+shortest_plen, shortest_play = 1000000, ''
+longest_plen, longest_play = 0, ''
+
+# PostingList: Map< docId, int[] >
 # PlayId: Map< docId, playId >
 class PostingList:
-    def __init__(self, postingList=[], playId={}):
+    def __init__(self, postingList={}, playId={}):
         self.postingList = postingList
         self.playId = playId
         
@@ -38,13 +46,10 @@ class PostingList:
         return self.playId
     
     def push(self, docId, index):
-        for i in self.postingList:
-            if i[0] == docId:
-                i[1].append(index)
-                return
-        
-        self.postingList.append(docId)
-        
+        if self.postingList.get(docId):
+            self.postingList[docId].append(index)
+        else:
+            self.postingList[docId] = [index]
     
     def pushPlayId(self, docId, playId):
         if (not self.playId.get(docId)):
@@ -67,10 +72,37 @@ def indexing():
             return True
         tokens = list(filter(checkEmpty, C[cs["text"]].split(' ')))
         
+        ###
+        # Q6 section
+        # global shortest_len, shortest_scene
+        # global longest_len, longest_scene
+        
+        # global average_len, num_scene
+        # global play_dict
+        
+        # shortest_len = min(shortest_len, len(tokens))
+        # if shortest_len == len(tokens):
+        #     shortest_scene = docId
+            
+        # longest_len = max(longest_len, len(tokens))
+        # if longest_len == len(tokens):
+        #     longest_scene = docId
+            
+        # average_len = average_len + len(tokens)
+        # num_scene = num_scene + 1
+        
+        # if play_dict.get(playId):
+        #     play_dict[playId] += len(tokens)
+        # else: 
+        #     play_dict[playId] = len(tokens)
+        # End Q6
+        ###
+        
         for index in range(0, len(tokens)):
             term = invertedIndex.get(tokens[index])
             if (not term):
                 # Init new term
+                # invertedIndex.update({tokens[index]: PostingList({docId: [index]}, {docId: playId})})
                 invertedIndex[tokens[index]] = PostingList({docId: [index]}, {docId: playId})
                 
             else:
@@ -93,6 +125,7 @@ class TermBased:
         self.invertedIndex = invertedIndex
         
     def writeFile(self, fileName, set):
+        set = sorted(set)
         f = open(fileName, "w")
         for i in set:
             f.write( i + '\n')
@@ -112,6 +145,7 @@ class TermBased:
                         if freq.get(sceneId):
                             freq[sceneId] += len(self.invertedIndex[term].get()[sceneId])
                         else:
+                            # freq.update({sceneId: len(self.invertedIndex[term].get()[sceneId])})
                             freq[sceneId] = len(self.invertedIndex[term].get()[sceneId])
             return freq
             
@@ -121,6 +155,31 @@ class TermBased:
         ans = set()
         freq1 = freqCal(terms1)
         freq2 = freqCal(terms2)
+        
+        ###
+        # Store for Q7:
+        # temp = collections.OrderedDict(sorted(freq1.items()))
+        # f = open('Scene1Id.txt', "w")
+        # for i in temp:
+        #     f.write( i + '\n')
+        # f.close()
+        
+        # f = open('Scene1Count.txt', "w")
+        # for i in temp:
+        #     f.write( str(temp[i]) + '\n')
+        # f.close()
+        
+        # temp = collections.OrderedDict(sorted(freq2.items()))
+        # f = open('Scene2Id.txt', "w")
+        # for i in temp:
+        #     f.write( i + '\n')
+        # f.close()
+        
+        # f = open('Scene2Count.txt', "w")
+        # for i in temp:
+        #     f.write( str(temp[i]) + '\n')
+        # f.close()
+        ###
         
         for sceneId in freq1:
             if freq2.get(sceneId):
@@ -149,6 +208,7 @@ class PhraseBased:
         self.invertedIndex = invertedIndex
         
     def writeFile(self, fileName, set):
+        set = sorted(set)
         f = open(fileName, "w")
         for i in set:
             f.write( i + '\n')
@@ -236,12 +296,47 @@ class PhraseBased:
 # Main
 indexing()
 termBased = TermBased(invertedIndex)
+start_time = time.time()
 termBased.findGreaterScene(['thee', 'thou'], ['you'], cs["terms0"])
+print("term0.txt time %s" % (time.time() - start_time))
+
+start_time = time.time()
 termBased.findGreaterScene(['venice', 'rome', 'denmark'], [], cs["terms1"])
+print("term1.txt time %s" % (time.time() - start_time))
+
+start_time = time.time()
 termBased.findPlays('goneril', cs["terms2"])
+print("term2.txt time %s" % (time.time() - start_time))
+
+start_time = time.time()
 termBased.findPlays('soldier', cs["terms3"])
+print("term3.txt time %s" % (time.time() - start_time))
 
 phraseBased = PhraseBased(invertedIndex)
+start_time = time.time()
 phraseBased.findScenes("poor yorick", 1, cs["phrase0"])
+print("phrase0.txt time %s" % (time.time() - start_time))
+
+start_time = time.time()
 phraseBased.findScenes("wherefore art thou romeo", 1, cs["phrase1"])
+print("phrase1.txt time %s" % (time.time() - start_time))
+
+start_time = time.time()
 phraseBased.findScenes("let slip", 1, cs["phrase2"])
+print("phrase2.txt time %s" % (time.time() - start_time))
+
+# print('Shortest scene: ', shortest_scene)
+# print('Longest scene: ', longest_scene)
+# print('Average length', average_len/num_scene)
+
+# for playId in play_dict:
+#     shortest_plen = min(shortest_plen, play_dict[playId])
+#     if shortest_plen == play_dict[playId]:
+#         shortest_play = playId
+        
+#     longest_plen = max(longest_plen, play_dict[playId])
+#     if longest_plen == play_dict[playId]:
+#         longest_play = playId
+    
+# print('Shortest play: ', shortest_play)
+# print('Longest play: ', longest_play)
